@@ -169,6 +169,11 @@ void Send_CS43L22_Control(uint8_t reg, uint8_t dat) {
 
 void Init_CS43L22(void) {
 	uint32_t i;
+
+	//Поднимаем reset для cs43l22
+	GPIOD->BSRR = GPIO_BSRR_BS_4;
+
+	//Заполняем регистры cs43l22 даннными
 	for (i = 0; i < sizeof(cs43l22_init_data); i += 2) {
 		Send_CS43L22_Control(cs43l22_init_data[i], cs43l22_init_data[i + 1]);
 	}
