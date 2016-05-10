@@ -131,9 +131,20 @@ void CS43L22_InitCodec(CS43L22_CodecTypeDef *CS43L22_CodecStruct) {
 	uint32_t i;
 
 	//Данные для инициализации cs43l22
-	const uint8_t cs43l22_init_data[] = { 0x00, 0x99, 0x47, 0x80, 0x32, 0xBB,
-			0x32, 0x3B, 0x00, 0x00, CS43L22_CLOCK_CONTROLR,
-			CS43L22_CLOCK_CONTROLR_MCLKDIV2 | CS43L22_CLOCK_CONTROLR_AUTO,
+	const uint8_t cs43l22_init_data[] = { 0x00, 0x99,
+			0x47, 0x80,
+			0x32, 0xBB,
+			0x32, 0x3B,
+			0x00, 0x00,
+			0x04, 0xAF,
+			0x0D, 0x70,
+			0x06, 0x07,
+			0x0A, 0x00,
+			0x27, 0x00,
+			0x1A, 0x0A,
+			0x1B, 0x0A,
+			0x1F, 0x0F,
+			CS43L22_CLOCK_CONTROLR, CS43L22_CLOCK_CONTROLR_MCLKDIV2 | CS43L22_CLOCK_CONTROLR_AUTO,
 			CS43L22_POWER_CONTROL1R, CS43L22_POWER_CONTROL1R_POWERUP };
 
 	//Заполняем регистры cs43l22 даннными
