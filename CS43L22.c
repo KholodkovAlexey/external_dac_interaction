@@ -95,13 +95,13 @@ void CS43L22_InitCodec(CS43L22_CodecTypeDef *CS43L22_CodecStruct) {
 	CS43L22_CodecStruct->I2C->CR1 &= ~I2C_CR1_PE;
 	//Записываем частоту переферии APB1 (42MHz)
 	CS43L22_CodecStruct->I2C->CR2 &= ~I2C_CR2_FREQ;
-	CS43L22_CodecStruct->I2C->CR2 |= (uint16_t) (42);
-	//частота_APB1 / (частота_I2C << 1)
+	CS43L22_CodecStruct->I2C->CR2 |= (uint16_t) (APB1_CLK / 1000000);
+	//частота_APB1 / (частота_I2C << 1)  (i2c base clock = 100000)
 	CS43L22_CodecStruct->I2C->CCR &= ~I2C_CCR_CCR;
-	CS43L22_CodecStruct->I2C->CCR |= (uint16_t) (210);
+	CS43L22_CodecStruct->I2C->CCR |= (uint16_t) (APB1_CLK / (200000));
 	//частота_APB1 + 1
 	CS43L22_CodecStruct->I2C->TRISE &= ~I2C_TRISE_TRISE;
-	CS43L22_CodecStruct->I2C->TRISE |= (uint16_t) (43);
+	CS43L22_CodecStruct->I2C->TRISE |= (uint16_t) ((APB1_CLK / 1000000) + 1);
 	//Включаем I2C, ставим бит подтверждения
 	CS43L22_CodecStruct->I2C->CR1 &= ~(I2C_CR1_SMBUS);
 
@@ -131,20 +131,23 @@ void CS43L22_InitCodec(CS43L22_CodecTypeDef *CS43L22_CodecStruct) {
 	uint32_t i;
 
 	//Данные для инициализации cs43l22
-	const uint8_t cs43l22_init_data[] = { 0x00, 0x99,
+	const uint8_t cs43l22_init_data[] = {
+			0x00, 0x99,
 			0x47, 0x80,
 			0x32, 0xBB,
 			0x32, 0x3B,
 			0x00, 0x00,
-			0x04, 0xAF,
-			0x0D, 0x70,
-			0x06, 0x07,
-			0x0A, 0x00,
-			0x27, 0x00,
-			0x1A, 0x0A,
-			0x1B, 0x0A,
-			0x1F, 0x0F,
-			CS43L22_CLOCK_CONTROLR, CS43L22_CLOCK_CONTROLR_MCLKDIV2 | CS43L22_CLOCK_CONTROLR_AUTO,
+
+			CS43L22_POWER_CONTROL2R, 0xAF,
+			CS43L22_PLAYBACK_CONTROL1R, 0x70,
+			CS43L22_INTERFACE_CONTROL1R, 0x07,
+			CS43L22_ANALOG_ZC_SR_SETTINGSR, 0x00,
+			CS43L22_LIMITTER_CONTROL1R, 0x00,
+			CS43L22_PCMA_VOLUMER, 0x0A,
+			CS43L22_PCMB_VOLUMER, 0x0A,
+			CS43L22_TONE_CONTROLR, 0x0F,
+			CS43L22_CLOCK_CONTROLR, CS43L22_CLOCK_CONTROLR_MCLKDIV2
+					| CS43L22_CLOCK_CONTROLR_AUTO,
 			CS43L22_POWER_CONTROL1R, CS43L22_POWER_CONTROL1R_POWERUP };
 
 	//Заполняем регистры cs43l22 даннными
@@ -237,8 +240,8 @@ void ConfigAudio(CS43L22_CodecTypeDef *CS43L22_CodecStruct, uint32_t frequency,
 	CS43L22_CodecStruct->SPI->I2SCFGR &= ~SPI_I2SCFGR_I2SE;
 	//Настроим частоту для I2S
 	//Настраиваем предделитель
-	uint32_t prescaler = (96000 * 7) / frequency;
-	if ((((prescaler << 1) + 1) * frequency) < ((96000 * 7) << 1)) {
+	uint32_t prescaler = (I2S_CLK >> 8) / frequency;
+	if ((((prescaler << 1) + 1) * frequency) < ((I2S_CLK >> 8) << 1)) {
 		++prescaler;
 	}
 	//Проверяем значение предделителя на крайние значения
@@ -272,16 +275,20 @@ void ConfigAudio(CS43L22_CodecTypeDef *CS43L22_CodecStruct, uint32_t frequency,
 
 void Send_CS43L22_Sample(CS43L22_CodecTypeDef *CS43L22_CodecStruct,
 		uint32_t sample, uint16_t bits_per_sample) {
+	//Битовая маска для отрезания лишней части сэмпла
+	uint16_t sample_mask = (uint16_t) (0xFFFF >> (bits_per_sample & 0x000F));
+
 	while (!(SPI3->SR & SPI_SR_TXE)) {
 
 	}
+
 	if (bits_per_sample > 16) {
-		//Если размер сэмпла болше 16 бит, отправляем его в несколько заходов
-		CS43L22_CodecStruct->SPI->DR = sample >> 16;
+		//Если размер сэмпла больше 16 бит, отправляем его в несколько заходов
+		CS43L22_CodecStruct->SPI->DR = (uint16_t)(sample >> 16);
 		Send_CS43L22_Sample(CS43L22_CodecStruct, sample,
 				(uint16_t) (bits_per_sample - 16));
 	} else {
-		CS43L22_CodecStruct->SPI->DR = sample;
+		CS43L22_CodecStruct->SPI->DR = (uint16_t)(sample & sample_mask);
 	}
 
 }

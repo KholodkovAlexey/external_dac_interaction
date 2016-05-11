@@ -9,58 +9,52 @@ uint16_t ReverseByteEndian16(uint16_t x) {
 	return (uint16_t) (x >> 8) | (uint16_t) (x << 8);
 }
 
-Wav_Read_ErrorTypeDef ReadWav(WavTypeDef *wav, uint32_t FileOffset) {
-	Wav_Read_ErrorTypeDef res = NO_ERROR;
+Wav_ErrorTypeDef ReadWav(WavTypeDef *wav, uint32_t FileOffset) {
+	Wav_ErrorTypeDef res = WAV_ERROR_NO_ERROR;
 	__IO RIFF_ChunkTypeDef *riff = (RIFF_ChunkTypeDef*) FileOffset;
 	uint32_t offset = FileOffset;
 	wav->ftm = 0;
 	wav->data = 0;
 
-	if (riff->ChunkID != ReverseByteEndian32(CHUNK_ID_RIFF)) {
-		res = NOT_RIFF;
+	if ((riff->ChunkID != ReverseByteEndian32(CHUNK_ID_RIFF))
+			|| (riff->RIFFType != ReverseByteEndian32(RIFF_TYPE_WAVE))) {
+		res = WAV_ERROR_NOT_RIFF_WAV;
 	} else {
-		if (riff->RIFFType != ReverseByteEndian32(RIFF_TYPE_WAVE)) {
-			res = NOT_WAV;
-		} else {
+		uint32_t riff_end = offset + ReverseByteEndian32(riff->ChunkDataSize)
+				+ 8;
+		offset += 12;
+		while ((offset < riff_end) && !(wav->ftm && wav->data)) {
 
-			//uint32_t data_offset = 20 +  (*((__IO uint32_t*) (offset + 16)));
+			__IO ChunkTypeDef *chunk = (ChunkTypeDef*) offset;
 
-			/*if (data_offset == 36) {
-				GPIOD->BSRR = GPIO_BSRR_BS_13;
-			}*/
+			switch (ReverseByteEndian32(chunk->ChunkID)) {
+			case CHUNK_ID_FTM:
+				wav->ftm = (FTM_ChunkTypeDef*) offset;
 
-			/*if (*((__IO uint32_t*) (offset + 12))
-					== ReverseByteEndian32(CHUNK_ID_FTM)) {
-				GPIOD->BSRR = GPIO_BSRR_BS_13;
-			}
-
-			if (*((__IO uint32_t*) (offset + 36))
-					== ReverseByteEndian32(CHUNK_ID_DATA)) {
-				GPIOD->BSRR = GPIO_BSRR_BS_14;
-			}*/
-
-			uint32_t riff_end = offset
-					+ ReverseByteEndian32(riff->ChunkDataSize) + 8;
-			offset += 12;
-			while ((offset < riff_end) && !(wav->ftm && wav->data)) {
-				__IO ChunkTypeDef *chunk = (ChunkTypeDef*) offset;
-				switch (ReverseByteEndian32(chunk->ChunkID)) {
-				case CHUNK_ID_FTM:
-					wav->ftm = (FTM_ChunkTypeDef*) offset;
-					break;
-				case CHUNK_ID_DATA:
-					wav->data = (ChunkTypeDef*) offset;
-					break;
+				//Неверный способ сжатия или неправилное выравнивание блока
+				if ((((uint16_t) wav->ftm->CompressionCode_NumberOfChannels)
+						!= FTM_COPRESSION_CODE_PCM)
+						|| (((uint16_t) wav->ftm->BlockAlign_SignificantBitsPerSample)
+								!= ((uint16_t) (wav->ftm->BlockAlign_SignificantBitsPerSample
+										>> 19))
+										* ((uint16_t) (wav->ftm->CompressionCode_NumberOfChannels
+												>> 16)))) {
+					//Завершаем цыкл
+					offset = riff_end;
+					res = WAV_ERROR_WORONG_FORMAT;
 				}
-				offset += chunk->ChunkDataSize + 8;
+				break;
+			case CHUNK_ID_DATA:
+				wav->data = (ChunkTypeDef*) offset;
+				break;
 			}
+			offset += chunk->ChunkDataSize + 8;
 		}
-		if (!wav->ftm) {
-			res = MISS_FTM;
+
+		if ((!wav->ftm) || (!wav->data)) {
+			res = WAV_ERROR_MISS_FTM_OR_DATA;
 		}
-		if (!wav->data) {
-			res = MISS_DATA;
-		}
+
 	}
 	return res;
 }

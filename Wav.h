@@ -28,23 +28,25 @@ typedef struct {
 typedef struct {
 	uint32_t ChunkID;
 	uint32_t ChunkDataSize;
-	uint32_t CopressionCode_NumberOfChannels;
+	uint32_t CompressionCode_NumberOfChannels;
 	uint32_t SampleRate;
 	uint32_t AverageBytesPerSecond;
 	uint32_t BlockAlign_SignificantBitsPerSample;
 } FTM_ChunkTypeDef;
 
 typedef struct {
-	__IO FTM_ChunkTypeDef *ftm;
-	__IO ChunkTypeDef *data;
+	__IO FTM_ChunkTypeDef *ftm;__IO ChunkTypeDef *data;
 } WavTypeDef;
 
 typedef enum {
-	NO_ERROR, NOT_RIFF, NOT_WAV, NOT_PCM, MISS_FTM, MISS_DATA
-} Wav_Read_ErrorTypeDef;
+	WAV_ERROR_NO_ERROR,
+	WAV_ERROR_NOT_RIFF_WAV,
+	WAV_ERROR_MISS_FTM_OR_DATA,
+	WAV_ERROR_WORONG_FORMAT
+} Wav_ErrorTypeDef;
 
 uint32_t ReverseByteEndian32(uint32_t x);
 uint16_t ReverseByteEndian16(uint16_t x);
-Wav_Read_ErrorTypeDef ReadWav(WavTypeDef *wav, uint32_t FileOffset);
+Wav_ErrorTypeDef ReadWav(WavTypeDef *wav, uint32_t FileOffset);
 
 #endif /* WAV_H_ */
